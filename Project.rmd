@@ -1,0 +1,1042 @@
+Prosper Loan Data Analysis by Carlos Blanco
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+library(ggplot2)
+library(dplyr)
+library(GGally)
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+ld <- read.csv('prosperLoanData.csv')
+
+#Select the variables that will be analyzed on a vector
+variables_of_interest = c(
+'BorrowerRate',
+'EstimatedReturn',
+'ProsperRating..numeric.',
+'EmploymentStatus',
+'CreditScoreRangeLower',
+'CreditScoreRangeUpper',
+'DebtToIncomeRatio',
+'IncomeRange',
+'LoanOriginalAmount',
+'LoanOriginationDate')
+
+#Keep only the data that will be analyzed on the database
+ld <- ld[variables_of_interest]
+```
+
+This dataset is from prosper and contains data for 113937 loans they made from
+2006 to 2014. The main goal is to determine what variables set the interest paid 
+by the borrowers (BorrowerRate)
+
+# Univariate Plots Section
+
+To start this analysis is important to fully know the characteristics of the 
+data set, next are the variables names, classes and summaries.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots}
+str(ld)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(ld)
+```
+
+I observe that I need to transform some variables. First the Prosper rating is 
+a number and we will need it as factor, also the loan origination date is in 
+datetime format and I proceed to extract years to study the changes over 
+time. 
+
+I will combine Credit Score Range Upper and Lower into an Average
+because they measure the same variable and rearrange the order of Income Levels
+for a better plot visualization.
+
+Also, I observe that a lot of variables have NAs, so in order to examine data
+with all of the variables I will remove rows with NAs.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Extract the first 4 characters of LoanOriginationDate because they represent
+#the year in the datetime. i.e. 2014-01-22 00:00:00
+ld$LoanOriginationDate.year = substr(ld$LoanOriginationDate, 1, 4)
+
+# Combine Credit Score Ranges to obtain the average
+ld$CreditScoreAverage <- (ld$CreditScoreRangeLower + ld$CreditScoreRangeUpper)/2
+
+# Since the rating can be considered a categorical value, we will convert it to
+#a factor variable to create box plots and help on in visualizations
+ld$ProsperRating..factor. <- factor(ld$ProsperRating..numeric.)
+
+#Rearrange Income Range factors to create a incremental order and create
+#ordered visualizations
+ld$IncomeRange <- factor(
+  ld$IncomeRange,
+  levels(ld$IncomeRange)[c(8,1,2,4,5,6,3,7)])
+
+#remove rows without data for each variable to detect patterns between them
+ld.no_na <- ld[complete.cases(ld),]
+```
+
+
+Next, I looked at the histograms for the BorrowerRate with 3 bins 
+sizes to determine the shape of the distribution, I selected bins of 1%, 2,5% 
+and 0.5%.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#histogram of binsize = 1%
+ggplot(data = ld,
+       aes(x = BorrowerRate)) + geom_histogram( binwidth = 0.01)
+
+#histogram of binsize = 2.5%
+ggplot(data = ld,
+       aes(x = BorrowerRate)) + geom_histogram( binwidth = 0.025)
+
+#histogram of binsize = 0.5%
+ggplot(data = ld,
+       aes(x = BorrowerRate)) + geom_histogram( binwidth = 0.005)
+```
+
+
+In addition, I created a Box Plot
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld, aes(x = "", y = BorrowerRate)) + 
+  geom_boxplot() +
+  scale_y_continuous(breaks = seq(0,0.5,0.05))
+```
+
+
+To get a better understanding I plot the mean, median and interquartile 
+measures in the 1% bin size histogram.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld,
+       aes(x = BorrowerRate)) + 
+  geom_histogram( binwidth = 0.01) +
+  geom_vline(aes(xintercept = mean(ld$BorrowerRate)),col='red',size=1) +
+  geom_vline(aes(xintercept = median(ld$BorrowerRate)),col='blue',size=1) +
+  geom_vline(aes(xintercept = quantile((ld$BorrowerRate), 0.25)), linetype= 2) +
+  geom_vline(aes(xintercept = quantile((ld$BorrowerRate), 0.75)), linetype= 2)
+```
+
+
+BorrowerRate's summary statistics are:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(ld.no_na$BorrowerRate)
+```
+
+
+From the previous plot we observe that the distribution is close to a normal one
+but has a spike at about 0.32, which moves the mean and the median from the 
+center of the curve. This must be further investigated.
+
+Also, next I present the histograms for every variable on the data set in order
+to get a better grasp of their distributions.
+
+### Prosper Rating
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = ProsperRating..numeric.)) + 
+  geom_histogram() +
+  scale_x_continuous(breaks = seq(1,7,1))
+```
+
+Observations: It looks close to a normal distribution without tails, because the
+ratings only go from 1 to 7.
+
+In addition is benefitial to the analysis the exact
+numbers of measures of central tendency. Next we have this measures for each
+of the costumbers groups by rating:
+
+Summary Posper Rating == 1
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(subset(ld.no_na$BorrowerRate, ld.no_na$ProsperRating..factor. == 1))
+```
+
+Summary Posper Rating == 2
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(subset(ld.no_na$BorrowerRate, ld.no_na$ProsperRating..factor. == 2))
+```
+
+Summary Posper Rating == 3
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(subset(ld.no_na$BorrowerRate, ld.no_na$ProsperRating..factor. == 3))
+```
+
+Summary Posper Rating == 4
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(subset(ld.no_na$BorrowerRate, ld.no_na$ProsperRating..factor. == 4))
+```
+
+Summary Posper Rating == 5
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(subset(ld.no_na$BorrowerRate, ld.no_na$ProsperRating..factor. == 5))
+```
+
+Summary Posper Rating == 6
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(subset(ld.no_na$BorrowerRate, ld.no_na$ProsperRating..factor. == 6))
+```
+
+Summary Posper Rating == 7
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(subset(ld.no_na$BorrowerRate, ld.no_na$ProsperRating..factor. == 7))
+```
+
+
+### Credit Score Average Histogram
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = CreditScoreAverage)) + 
+  geom_histogram(binwidth = 10) +
+  scale_x_continuous(breaks = seq(10,850,40)) +
+  scale_y_continuous(breaks = seq(0,15000,1000))
+```
+
+
+Summary Credit Score Average
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(ld.no_na$CreditScoreAverage)
+```
+
+Observations: Close to normal distribution, moved towards the lower rates. Even 
+thus, it is a continuous variable there are bins of size one each 20 points. Also 
+the range is 280 (889.5-609.5)
+
+
+### Loan Origination Date Histogram
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = as.numeric(LoanOriginationDate.year))) + 
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks = seq(2005,2014,1))
+```
+
+Table of Loan Origination Date's proportions:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+prop.table(table(ld.no_na$LoanOriginationDate.year))
+```
+
+Observation: in 2013 the company issued the majority of the database loans.
+
+
+### Debt to Income Ratio Histogram of 99 percentile.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = DebtToIncomeRatio)) + 
+  geom_histogram(binwidth = 0.01) +
+  scale_x_continuous(
+    lim = c(0, quantile(ld.no_na$DebtToIncomeRatio, 0.99)),
+    breaks = seq(0,0.7,0.05))
+```
+
+Observations: Debt to Income Ratio have a normal distribution, however the study
+could benefit from the exact measures of central tendency:
+
+
+Summary Debt to Income Ratio
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(ld.no_na$DebtToIncomeRatio)
+```
+
+
+### Loan Original Amount Histogram
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#LoanOriginalAmount is multiplied by 100 to obtain percentages and improve 
+#quality of plot
+ggplot(data = ld.no_na, 
+  aes(x = LoanOriginalAmount / 1000)) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks = seq(0,35,2))
+```
+
+Observations: We can see that there are more loans of 15000 or lower, with peaks
+at around 4000, 10000 and 15000. Is there any significate variance through the 
+years?
+
+
+### Estimated return Histogram
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#EstimatedReturn is multiplied by 100 to obtain percentages and improve 
+#quality of plot
+ggplot(data = ld.no_na,
+       aes(x = EstimatedReturn * 100)) + 
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks = seq(-20,30,2)) + 
+  scale_y_continuous(breaks = seq(0,20000,1000))
+```
+
+Observations: The bank almost never issues a loan that is expected to bring
+negative return, however there are some cases. I thought that the bank will try 
+to get standard returns % for each loan, however the distributions seems normal
+with the majority of the values ranging from 4% to 16%. 
+
+
+The exact measures of central tendency are:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(ld$EstimatedReturn)
+```
+
+
+### Employment Status Count Bar Graph
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = EmploymentStatus)) + geom_bar() +
+  scale_y_continuous(breaks = seq(0,65000,5000))
+```
+
+Observations: as we suspected not employed people usually don't get a loan, but
+neither does retired, self-employed and part-time people.
+
+### Income Range Histogram
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = IncomeRange)) + geom_bar() +
+  scale_y_continuous(breaks = seq(0,25000,2500))
+```
+
+Observations: the mayority of the loans are made for coustumers who earn between
+25000 and 75000, however those who earn more than 75000 also request a good 
+amount of loans, the exact numbers are:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+table(ld.no_na$IncomeRange)
+```
+
+
+# Univariate Analysis
+
+The dataset is in a wide format, with each row containing the information for a 
+single loan, the loan and the borrower characteristics
+
+The main feature of interest is the Borrower Rate, I want to be able to predict
+what rate a certain costumer would get.
+
+In order to do this, I will take a closer look at the variables of related to 
+the borrowers like credit score, income range, debt to income ratio, the amount 
+of the loan and the rating prosper gives to each borrower.
+
+Also, I created a credit average score, because it made sense to 
+compare the data to a single credit than an upper and lower score. Also, I 
+extracted the year from the loan origination date because I wanted to analyze 
+the loans over the years and not a more granular time metric. Finally, I created
+a factor variable of the prosper ratings to be able to clearly differentiate the
+different borrowers in the plots.
+
+# Bivariate Plots Section
+
+I will use GGpairs as my first plot to get an overview of the relationship
+between the variables of study.
+
+In order to improve readability, I will plot BorrowerRate vs with 3 variables at
+the time. The first set includes EstimatedReturn, ProsperRating..numeric. and 
+ProsperRating..factor.
+
+### GGPairs Plot #1
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Create a Dataframe with Borrower Rate and 3 First Variables
+variables <- data.frame(
+        BorrowerRate = ld.no_na$BorrowerRate,
+        EstimatedReturn = ld.no_na$EstimatedReturn,
+        ProsperRatingNumeric = ld.no_na$ProsperRating..numeric.,
+        ProsperRatingFactor = ld.no_na$ProsperRating..factor.
+)
+
+# Plot Dataframe of Borrower Rate and the 3 First Variables
+ggpairs(variables, 
+        wrap = c(Shape = I("."), outlier.shape = I("."))) + 
+        theme(legend.position = "none",
+              panel.grid.major = element_blank(),
+              axis.ticks = element_blank(),
+              axis.text = element_blank(),
+              axis.title.y.right = element_text(angle = 45, hjust = 1))
+```
+
+GGpairs plot #1 Observations: 
+-EstimatedReturn and Prosper Rating Numeric have big correlations with Borrower 
+Rate
+-BorrowerRate seems to be a normal distribution with a peak in higher levels.
+-BorrowerRate seems to decrease as Propsper Rating Factor Increases
+-BorrowerRate faceted by Posper Rating Factor seems to create normal 
+distribution for each rating
+-Prosper Rating Numeric and Factor have normal distributions
+-Estimated Return is lower for better Prosper Rating (Beeing 1 the worst and 7
+the best)
+
+Next is the plot of EmploymentStatus, IncomeRange and LoanOriginationDate.year 
+(numeric).
+
+
+### GGPairs Plot #2
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Create a Dataframe with Borrower Rate and 3 Second Variables
+variables <- data.frame(
+        BorrowerRate = ld.no_na$BorrowerRate,
+        EmploymentStatus = ld.no_na$EmploymentStatus,
+        IncomeRange = ld.no_na$IncomeRange,
+        LoanOriginationDate.year = as.numeric(ld.no_na$LoanOriginationDate.year)
+)
+
+# Plot Dataframe of Borrower Rate and the 3 Second Variables
+ggpairs(variables, 
+        wrap = c(Shape = I("."), outlier.shape = I("."))) + 
+        theme(legend.position = "none",
+        panel.grid.major = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+```
+
+GGpairs plot #2 Observations:
+-Employment status does not seems to have a linear relation with BorrowerRate
+-The majority of loans are for 1 factor of Employment Status
+-As income range increases Borrower Rate summary statistics decreases
+-The first Income Rage bin have close to none loan
+-LoanOriginationDate.Year have a low correlation with Borrower Rate
+-The majority of the loans were made on one year and decreases significantly for
+the others.
+
+To conclude the GGpairs plots its the plot of CreditScoreAverage, 
+DebtToIncomeRatio and LoanOriginalAmount
+
+
+### GGPairs Plot #3
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Create a Dataframe with Borrower Rate and the 3 third Variables
+variables <- data.frame(
+        BorrowerRate = ld.no_na$BorrowerRate,
+        CreditScoreAverage = ld.no_na$CreditScoreAverage,
+        DebtToIncomeRatio = ld.no_na$DebtToIncomeRatio,
+        LoanOriginalAmount = ld.no_na$LoanOriginalAmount
+)
+
+# Plot Dataframe of Borrower Rate and the 3 third Variables
+ggpairs(variables, 
+        wrap = c(Shape = I("."), outlier.shape = I("."))) + 
+        theme(legend.position = "none",
+        panel.grid.major = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+```
+
+GGpairs plot #3 Observations:
+-ECredit Score Average and Loan Original Amount have medium correlations 
+(0.4-0.6) with Borrower Rate
+-Loan Original Amount histogram have 5 peaks.
+-Credit Score average have several peaks, and seems to be a normal distribution
+-Debt to Income Ratio has a low correlation with Borrower Rate
+
+To have a better understading of the initial obervations I created plots to
+analyze each variable, first for Prosper Rating I created a Scatter Plot vs the
+main variable of study Borrower Rate:
+
+
+####Scatterplot ProsperRating..numeric. vs Borrower Rate
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = ProsperRating..numeric., y = BorrowerRate)) + geom_point()
+```
+
+I Observe that there are only round numbers for Prosper Rating, for that reason 
+and overplotting I created a boxplot of the same variables to understand the
+measures of central tendency.
+
+
+####Boxplot ProsperRating..factor. vs Borrower Rate
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = ProsperRating..factor., y = BorrowerRate)) + geom_boxplot()
+```
+
+The previous plot demostrates how the spread and measures decrease as the rating
+increases. This raises the question, how does the rating is separated through 
+the Borrower Rate Histogram?
+
+
+The next plot answers it:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = BorrowerRate)) + 
+  geom_histogram(binwidth = 0.01, aes(fill = ProsperRating..factor.)) +
+  scale_fill_brewer(type = 'seq', palette = "Spectral")
+```
+
+We can confirm that there is a clear separation of Borrower Rate by rating,
+also, the peak we saw earlier is conformed only by the costumers with rating 1.
+But how is the distribution for each prosper rating? Is it normal if?
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = BorrowerRate)) + 
+  geom_histogram(binwidth = 0.005, aes(fill = ProsperRating..factor.)) +
+  scale_fill_brewer(type = 'seq', palette = "Spectral") +
+  facet_wrap( ~ ld.no_na$ProsperRating..factor.)
+```
+
+As we can see in the previous plots, prosper ratings groups but rating 1 have a 
+close to normal distributions. 
+
+From the previous plots, we can see that prosper rating is indeed a very
+influential variable in the borrower rate. In fact, we can see that the borrower
+rate mean, median, interquartile distributions, min and max decrease as the 
+rating goes up. 
+
+Also, it is very clear that most of the borrower with rating 1
+get approximately 0.31 Rate. Them costumers with rating 2 have a greater spread 
+than those with rating 3, and this repeats up to rating 7, where the 
+interquartile is very close to the median. 
+
+In addition, when I plotted the 
+histograms faceted by rating we can see that all ratings but rating = 1 have a 
+close to normal distribution.
+
+Next, I proceed to study the influence of other variables on the Borrower Rate.
+For each continuous variable I analyzed the relationship vs Borrower rate and the
+variable histogram. After that I answer any particular question that arose from
+the previous plots.
+
+### Credit Score Average vs Borrower Rate
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = CreditScoreAverage ,
+           y = BorrowerRate)) +
+  geom_point(position = 'jitter', alpha = 1/25) + 
+  scale_x_continuous(breaks = seq(610, 890, 20)) +
+  scale_y_continuous(breaks = seq(0,0.35,0.025))
+```
+
+
+Observations: There seems to be a negative linear relationship, however the 
+spread in big and the confidence intervals of a model would be big as well.
+
+If credit score has a negative relationship with Borrower Rate, and also does
+the prosper rating, how are they related to each other?
+
+
+### Credit Score Average vs ProsperRating..numeric.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = CreditScoreAverage, y = ProsperRating..numeric.)) + 
+  geom_bin2d() +
+  scale_x_continuous(breaks = seq(10,890,20)) +
+  scale_y_continuous(breaks = seq(0,7,1))
+```
+
+
+The previous plot does not provide any clear relationship, since for most of the
+Credit Scores Averages there are most of the possible Prosper Ratings. 
+
+Next, I analyzed Loan Origination year.
+
+
+### Loan Origination Date vs Borrower Rate
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = LoanOriginationDate.year,
+           y = BorrowerRate)) +
+  geom_point(alpha = 1/10, position = 'jitter') +
+  scale_x_discrete(breaks = seq(2009,2014,1))
+```
+
+Observations: The rates become a little bit lower as the years increases.
+
+The following variable of study is Debt to Income Ratio
+
+
+### Debt to Income Ratio vs Borrower Rte
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = DebtToIncomeRatio,
+           y = BorrowerRate)) +
+  geom_point(alpha = 1/25) +
+  scale_x_continuous(
+    lim = c(0, quantile(ld.no_na$DebtToIncomeRatio, 0.99)))
+```
+
+Observations: The correlation of Debt To Income Ratio and Borrower rate is weak
+because we dont see any close to linear pattern.
+
+We can conclude that Debt to Income Ratio has a interquartile range of 17%, and 
+there is a sorprising max of 10.01. However since the mean is not very affected
+by this outliers we know that the most of the values are relatively close to 
+0.22
+
+Also, since Prosper Rating has the greatest correlation with Borrower Rate, I 
+wonder, how Debt to Income Ratio and the rating are related?
+
+
+### 99 Percentile of Debt to Income Ratio vs ProsperRating..numeric.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Debt to income ratio is multiplied by 100 to obtain percentages and improve 
+#quality of plot
+
+ggplot(data = ld.no_na,
+       aes(x = ProsperRating..factor., y = DebtToIncomeRatio* 100)) + 
+  geom_boxplot() +
+  scale_y_continuous(breaks = seq(0,100,5), 
+                     lim = c(0, quantile(ld.no_na$DebtToIncomeRatio* 100, 0.99)))
+```
+
+Observations: as the rating increases the debt to income ratio decreases, 
+however, the difference between the rating 1 group mean and the rating 7 mean is 
+only 10% greater, which is surprising because one might think that such 
+different costumers will have a greater difference on this variable.
+
+Continuing the analysis, I wanted how the debt variable changed over the years.
+
+
+### 99 percentile of Debt to Income Ratio vs LoanOrigination
+Date.year
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = LoanOriginationDate.year, y = DebtToIncomeRatio)) + 
+  geom_boxplot() + 
+  scale_y_continuous(breaks = seq(0,1,0.05), 
+                     lim = c(0, quantile(ld.no_na$DebtToIncomeRatio, 0.99)))
+```
+
+Observations: we can see that the Debt to Income Ratio has stayed fairly similar
+through the years, with a little increment the last years.
+
+To continue I analyzed the Loan Original amount, I tought that with higher 
+amounts the bank probably request more interest.
+
+
+### Loan Original Amount with alpha = 1/10
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#LoanOriginalAmount is multiplied by 100 to obtain percentages and improve 
+#quality of plot
+ggplot(data = ld.no_na,
+       aes(x = LoanOriginalAmount / 1000,
+           y = BorrowerRate)) +
+  geom_point(alpha = 1/25) +
+  scale_y_continuous(breaks = seq(0,0.35,0.025)) +
+  scale_x_continuous(breaks = seq(0,35,5))
+```
+
+Observations: my initial thoughts were incorrect, since the lower amounts have
+greater intereset.
+
+
+### Loan Origination Date vs Loan Origination Amount
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#LoanOriginalAmount is multiplied by 100 to obtain percentages and improve 
+#quality of plot
+ggplot(data = ld.no_na,
+       aes(x = LoanOriginationDate.year, y = LoanOriginalAmount/1000)) + 
+  geom_boxplot() +
+  scale_y_continuous(breaks = seq(0,36,2))
+```
+
+Observations: We can see that the amount have increased over time, we should 
+remember from previous plot that in 2013 is where the majority of the loans were
+originated, and now we know that also in the same year the bank loaned the 
+greatest amounts.
+
+Following the data set analysis, we analyze the bank loans' Estimated Return 
+
+### Estimated return vs Borrower Rate with alpha of 1/10
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#EstimatedReturn is multiplied by 100 to obtain percentages and improve 
+#quality of plot
+ggplot(data = ld.no_na,
+       aes(x = EstimatedReturn* 100,
+           y = BorrowerRate)) +
+  geom_point(alpha = 1/10) +
+  scale_x_continuous(breaks = seq(-20,30,5))
+```
+
+Observations: as a whole, there is no strong correlation, however there are some
+interesting lines, maybe another variable will help create linear relationships
+
+Nonetheless, we should examine if this returns varies over the principal factor
+of influence, the Prosper Rating:
+
+
+### Prosper Rating factor vs Estimated Return boxplot
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#EstimatedReturn is multiplied by 100 to obtain percentages and improve 
+#quality of plot
+ggplot(data = ld.no_na,
+       aes(x = ProsperRating..factor., y = EstimatedReturn * 100)) + 
+  geom_boxplot() +
+  scale_y_continuous(breaks = seq(-20,30,2.5))
+```
+
+Observations: the rating does influence the estimated return, we know 
+that better ranking has lower BorrowerRates, and that is in accordance because
+the bank is expecting lower returns for those ratings.
+
+Continuing to the Employment Status Variable
+
+
+### Employment Status vs Borrower Rate Boxplot
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = EmploymentStatus,
+           y = BorrowerRate)) +
+  geom_boxplot() + 
+  scale_y_continuous(breaks = seq(0,0.35,0.025))
+```
+
+Observations: there is no clear relationship between the variables, the spreads
+are mostly big, excluding not employed, that might be because the bank does not
+issued for most of the unemployed costumers. We could check this with a bar 
+graph of Employment Status Count.
+
+To last variable of the bivariate analysis in the Income range. First, we look 
+at the distribution for each category
+
+
+### Income Range vs Borrower Rate Boxplots
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = IncomeRange,
+           y = BorrowerRate)) +
+  geom_boxplot() + 
+  scale_y_continuous(breaks = seq(0,0.35,0.025))
+```
+
+Observations: as costumers earn more they get lower rates. However we should 
+analyze how is the distributions of loans for each Income Rage group. Also we 
+know not employed people don't usually get a loan, and the majority of the loans
+are for people who earn 25000 - 75000. However there are over 25000 loans made 
+to people who earn 75000 or more. We know that the majority of the loans are 
+under 15000, and for that reason we can conclude that even people with high 
+income request low amount loans.
+
+Because of the decreasing Borrower Rate pattern of Income Ranges I wanted to see
+if Income Range plays an important role on Prosper Rating.
+
+
+### Income Range vs Prosper Rating Numeric
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = IncomeRange,
+           y = ProsperRating..numeric.)) +
+  geom_boxplot() + 
+  scale_y_continuous(breaks = seq(1,7,1))
+```
+
+Observations: There are people with all the rating accros income range, even
+thus the rating mean increases as the income does, there is no clear correlation.
+
+
+# Bivariate Analysis
+
+The result of the previous plots clearly shows that almost all of the variables 
+have little to no effect on the borrower rate, this includes de date, the amount,
+the employment status, and debt to income.
+
+The principal factor is the prosper rating. From the client side, besides it 
+only income range, loan amount and credit score seems to have some influence on 
+the rate, decreasing it as the conditions are more favorable. 
+
+In addition, the expected return plot is interesting, there seems to be some 
+linear relationships on it, another variable might help clear this out.
+
+
+# Multivariate Plots Section
+
+Since it is clear that the main factor on the borrower rate is the prosper
+rating, I will try to discover other relationships between this rating and the
+other variables differencing each rating in the previous plots.
+
+
+### Credit Score Average vs Borrower Rate by Prosper Rating with alpha = 1/10
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots}
+ggplot(data = ld.no_na,
+       aes(x = CreditScoreAverage ,
+           y = BorrowerRate)) +
+  geom_point(position = 'jitter', alpha = 1/10, 
+             aes(color = ld.no_na$ProsperRating..factor.)) + 
+  scale_x_continuous(breaks = seq(610, 890, 20)) +
+  scale_color_brewer(type = 'div',
+    guide = guide_legend(title = 'Rating', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = "Spectral")
+```
+
+Observations: As the credit score increases, so does the ranking, however the 
+spreads are big.
+
+
+### Loan Origination Date vs Borrower Rate by Prosper Rating alpha = 1/10
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = LoanOriginationDate.year,
+           y = BorrowerRate)) +
+  geom_point(alpha = 1/10, position = 'jitter' ,
+             aes(color = ld.no_na$ProsperRating..factor.)) +
+  scale_x_discrete(breaks = seq(2009,2014,1)) +
+  scale_color_brewer(type = 'div',
+    guide = guide_legend(title = 'Rating', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = "Spectral")
+```
+
+Observations: we see that over the years the groups of ratings have kept a 
+fairly similar borrower rate
+
+
+### Debt to Income Ratio vs Borrower Rate by Prosper Rating
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = DebtToIncomeRatio,
+           y = BorrowerRate)) +
+  geom_point(alpha = 1/25, aes(color = ld.no_na$ProsperRating..factor.)) +
+  scale_x_continuous(
+    lim = c(0, quantile(ld.no_na$DebtToIncomeRatio, 0.99))) +
+  scale_color_brewer(type = 'div',
+    guide = guide_legend(title = 'Rating', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = "Spectral")
+```
+
+Observations: Now that I included prosper rating as a factor, we know that even 
+if the Debt to Income Ratio increases significantly, the borrower rate does not
+change as much within groups.
+
+
+### Loan Original Amount vs Borrower Rate by Prosper Rating with alpha = 1/10
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#LoanOriginalAmount is multiplied by 100 to obtain percentages and improve 
+#quality of plot
+ggplot(data = ld.no_na,
+       aes(x = LoanOriginalAmount/1000 ,
+           y = BorrowerRate)) +
+  geom_point(aes(color = ProsperRating..factor.),
+             alpha = 1/10, size = 1) + 
+  scale_color_brewer(type = 'div',
+    guide = guide_legend(title = 'Rating', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = "Spectral") +
+  scale_x_continuous(breaks = seq(0,40,2))
+```
+
+Observations: In this plot, we can corroborate that only higher rates get high 
+loan amounts, however, costumers for each rating group request low amount loans.
+One of the possible reasons behind this is that people with high income want
+to improve their credit having a well payed low amount loan.
+
+
+### Estimated Return vs Borrower Rate by Prosper Rating
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na, 
+       aes(x = EstimatedReturn, y = BorrowerRate)) + 
+  geom_point(aes(color = ProsperRating..factor.), alpha = 1/10) +
+  scale_color_brewer(type = 'div',
+    guide = guide_legend(title = 'Rating', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = "Spectral")
+```
+
+Observations: this is a very interesting graphs of the analysis, because we can
+see that for each Prosper Rating group, there is a linear relationship between
+how much interest they pay and how much does the bank earns. This indicates that
+the banks rating is indeed the most influential variable on rate, however for
+the same group of people prosper set higher rates to obtain higher returns. It 
+would be interesting to study this groups isolated to determine what makes the 
+bank want to earn more or less within very similar financial profiles. In 
+addition it is important to note that for the group of rating 1 there seems to 
+be ar least 4 linear relationships, probably there is another variable that
+is differentiating what the bank expects to return from them.
+
+
+### Prosper Rating vs Borrower Rate by Income Range Boxplots
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = ProsperRating..factor.,
+           y = BorrowerRate)) + geom_boxplot() +
+  facet_wrap( ~ IncomeRange)
+```
+
+Observations: we see that across the Income Ranges the patter of negative 
+correlations between rating and rate is really similar. 
+
+
+### Prosper Rating vs Borrower Rate by Employment Status Boxplots
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = ld.no_na,
+       aes(x = ProsperRating..factor.,
+           y = BorrowerRate)) + geom_boxplot() +
+  facet_wrap( ~ EmploymentStatus)
+```
+
+Observations: As in the Income Range Boxplots, we see similar boxplots for each
+Employment Status, however we know that the vast majority of the loans are for
+employed costumers and for that reason the other boxplots have few data.
+
+
+# Multivariate Analysis
+
+First, we can conclude that neither LoanOriginationDate, DebtToIncomeRatio, 
+LoanOriginalAmount, IncomeRange nor EmploymentStatus have any clear relationship
+with the Borrower Rate.
+
+Also, we can see that prosper rating is influenced by credit score average,
+however, the spread is big, with very different credit scores having the same
+rating.
+
+In addition, we can see that over the years the rates for the ratings groups
+was maintained.
+
+Lower ratings tend to have bigger debt to income rating, however this is not a 
+rule, there are people with rating 1 and close to 0 debt to income ratio.
+
+Lower ratings tend to get lower loan amounts, and as the loan amount increases, 
+we see that the amounts tend to be round numbers, there are several loans made 
+with amount of 10,000, 15,000, 20,000, 25,000, 30,000 and 35,000.
+
+There are linear relationships for the estimated return and borrower rate when
+we group the data by rating, this describes that the bank calculates the
+higher rate the higher the return will be, a relationship closes to +1. However,
+we can also see that even with higher rates, the lower ratings are expected to
+return very low. Especially costumers with prosper rating of 1 tend to create 
+loses. In addition, there seems to be another variable that divides that 
+group, because multiple linear relationships within the group.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_One}
+ggplot(data = ld.no_na,
+       aes(x = BorrowerRate)) + 
+  geom_histogram(binwidth = 0.01, aes(fill = ProsperRating..factor.)) +
+  scale_fill_brewer(type = 'div',
+    guide = guide_legend(title = 'Prosper Rating', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = "Spectral") +
+  scale_x_continuous(breaks = seq(0,0.35,0.05))
+```
+
+### Description One
+
+In the first Plot, I observe that the distribution of the borrower rates 
+(interest) for the loans its similar to a normal distribution if rating 1 is
+omitted, because almost of the costumer with this range get about 0.32 rate. 
+Also, the other groups seem are in order and clearly separated, best ratings 
+obtains bests rates. This is measured by the correlation, which is -0.953, a very
+strong relationship
+
+
+### Plot Two
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Two}
+ggplot(data = ld.no_na,
+       aes(x = CreditScoreAverage ,
+           y = BorrowerRate)) +
+  geom_point(position = 'jitter', alpha = 1/25, 
+             aes(color = ld.no_na$ProsperRating..factor.)) + 
+  scale_x_continuous(breaks = seq(610, 890, 20)) +
+  scale_color_brewer(type = 'div',
+    guide = guide_legend(title = 'Prosper Rating', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = "Spectral") +
+  scale_y_continuous(breaks = seq(0,0.35,0.025))
+```
+
+### Description Two
+
+This plot is interesting because it demonstrated that better credit scores tend 
+to get better borrower rates, however the relationship is not strong with a 
+correlation of -0.529. Also, the fact that same credit score averages tend to 
+have several costumers with different ratings. For example, we can find all the
+ratings in good amount in the 730-credit score average bin. This is very
+surprising for me because I thought that this will be a very influential 
+variable on borrower rate and prosper rating. We can conclude that there are 
+other variables influencing the rating and borrower rate.
+
+
+### Plot Three
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Three}
+ggplot(data = ld.no_na, 
+       aes(x = EstimatedReturn, y = BorrowerRate)) + 
+  geom_point(aes(color = ProsperRating..factor.), 
+             alpha = .33) +
+  scale_color_brewer(type = 'div',
+    guide = guide_legend(title = 'Prosper Rating', reverse = T,
+    override.aes = list(alpha = 1, size = 2)), palette = "Spectral") +
+  scale_y_continuous(breaks = seq(0,0.35,0.05)) + 
+  scale_x_continuous(breaks = seq(-0.2,0.25,0.05))
+```
+
+### Description Three
+
+This final plot stands out because even thus I did not find any linear 
+relationships in the other variables, here we see that if we divide each group
+of ratings, we could create several linear relationships. 
+
+This describes that the bank calculates that the higher rate the return will be 
+higher too, a relationship close to +1. However, we can also see that this is 
+the case for the ratings besides 1, where even the higher ratings are expected 
+to return lower. 
+
+Also, the bank seems to set very different rates for the people with similar
+financial characteristics, there must be another variable that influence how
+much prosper wants to earn. So if someone wants to obtain a lower rate, even
+thus rating is the most influential variable, is not the only one they should 
+take into consideration.
+
+Finally costumers with prosper rating 1 tend to create loses. Also, there 
+there seems to be another variable that divides that group, because multiple
+linear relationships may be within the group.
+
+------
+
+
+# Reflection
+
+Data analysis is a process where you first you have to understand each variable 
+and the problem before doing any plots, because if you don't understand the 
+situation you can't formulate the questions that will get the answers you need. 
+
+It is very important to clean up the data, because some variables might have 
+classes or formats that will produce bad visualizations and findings. After that
+decide which is your main characteristic of interest, what are you trying to 
+predict and study that variable alone, only after you have an understanding of 
+it you can explore the relationships it has with the other variables. 
+
+Create plots for all the variables and try to find key findings that will lead 
+your investigation until you find an explanation of the phenomenon’s discovered. 
+
+On a final note, I believe that the data is as valuable as it is real or 
+trustworthy. Even thus is it from a great source the analyst must be aware of the
+limitations of the data due to how was is recollected, from who and under what 
+circumstances.
+
+Regarding this data set, it would be valuable to study the rest of the variables
+to discover what influences Porsper rating, because if it can be predicted we 
+could predict the loan characteristics better. Also, it would be interesting to 
+compare the estimated return with the actual return of the loans.
